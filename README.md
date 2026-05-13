@@ -65,22 +65,23 @@ docker build \
 ```
 .
 ├── Dockerfile
-├── .mcp.json.example
 ├── README.md
 ├── LICENSE
 ├── .gitignore
 └── docker/
-    ├── entrypoint.sh           # /etc/hosts に拒否リストを適用し、uid=1000 に降格
-    └── shell-mcp-launch.py     # FastMCP による MCP サーバー本体 (~30 行)
+    └── shell-mcp-launch.py     # /etc/hosts ロックダウン + 権限降格 + FastMCP サーバー
 ```
 
-- `/etc/hosts` は `docker build` 中は **read-only でバインドマウント** される
-  ため、ビルド時に直接書けません。そこで一旦 `/etc/blocked_hosts.list` に
-  焼き込み、起動時に `entrypoint.sh` が root で `/etc/hosts` へ追記して
-  ロックダウンしたのち、`setpriv` で uid=1000 に降格してから MCP サーバーを
-  `exec` します。エージェントが触る shell は常に非root です。
-- `shell-mcp-launch.py` は公式 MCP Python SDK の `FastMCP` で書かれた自前の
-  サーバーです。許可ディレクトリ・許可シェルを CLI 引数で受け取り
-  (`/workspace --shell bash /bin/bash` の形式)、`execute_command` ツールを
-  stdio で公開します。タイムアウトは 30 秒固定 (旧 `shell-mcp-server` と同じ)。
+`shell-mcp-launch.py` は公式 MCP Python SDK の `FastMCP` で書かれた自前の
+サーバーです。コンテナ起動時に root で実行され、
+
+1. `BLOCKED_HOSTS` 環境変数を `127.0.0.1 <host>` として `/etc/hosts` に追記し、
+   `/etc/hosts` の所有権/パーミッションをロックダウン
+2. `os.setuid(1000)` (mcp ユーザー) に降格
+3. 許可ディレクトリ/許可シェルを CLI 引数 (`/workspace --shell bash /bin/bash`)
+   で受け取り、`execute_command` ツールを stdio で公開
+
+の順で動きます。`/etc/hosts` は `docker build` 中 read-only でバインド
+マウントされるためビルド時に直接書けず、この起動時ステップが必要です。
+エージェントが触る shell は常に非 root、タイムアウトは 30 秒固定です。
 

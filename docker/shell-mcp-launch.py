@@ -1,9 +1,10 @@
 #!/usr/local/bin/python3
-"""Minimal stdio MCP server with one tool: execute_command(command, shell, cwd).
+"""Stdio MCP server: one tool `execute_command`.
 
-Replaces the upstream shell-mcp-server with a direct FastMCP implementation —
-same CLI surface (`directories... --shell name path`) and same tool schema,
-but ~30 lines and no asyncio-wrapper workaround needed.
+When started as root (the container's default), the launcher first appends
+$BLOCKED_HOSTS to /etc/hosts as 127.0.0.1 entries and then setuid()s to the
+mcp user before serving. Outside the container (non-root) the harden/drop
+steps are skipped, so this script is also runnable directly for local tests.
 """
 import argparse
 import asyncio
@@ -12,6 +13,36 @@ import os
 from mcp.server.fastmcp import FastMCP
 
 TIMEOUT = 30
+MCP_UID = 1000
+MCP_GID = 1000
+HOSTS_MARK_BEGIN = "# shell-mcp-blocked:begin"
+HOSTS_MARK_END = "# shell-mcp-blocked:end"
+
+
+def harden_hosts() -> None:
+    blocked = [h.strip() for h in os.environ.get("BLOCKED_HOSTS", "").split(",") if h.strip()]
+    if blocked:
+        with open("/etc/hosts") as f:
+            existing = f.read()
+        if HOSTS_MARK_BEGIN not in existing:
+            with open("/etc/hosts", "a") as f:
+                f.write(f"\n{HOSTS_MARK_BEGIN}\n")
+                for h in blocked:
+                    f.write(f"127.0.0.1 {h}\n")
+                f.write(f"{HOSTS_MARK_END}\n")
+    os.chown("/etc/hosts", 0, 0)
+    os.chmod("/etc/hosts", 0o644)
+
+
+def drop_privs() -> None:
+    os.initgroups("mcp", MCP_GID)
+    os.setgid(MCP_GID)
+    os.setuid(MCP_UID)
+
+
+if os.geteuid() == 0:
+    harden_hosts()
+    drop_privs()
 
 ap = argparse.ArgumentParser(description="Shell MCP Server")
 ap.add_argument("directories", nargs="+", help="Allowed directories for command execution")
