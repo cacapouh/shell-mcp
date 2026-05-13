@@ -69,19 +69,25 @@ docker build \
 ├── LICENSE
 ├── .gitignore
 └── docker/
-    └── shell-mcp-launch.py     # /etc/hosts ロックダウン + 権限降格 + FastMCP サーバー
+    ├── entrypoint.py           # root で /etc/hosts に拒否リスト追記 → setuid(1000) → exec
+    └── shell-mcp-launch.py     # 非 root で動く FastMCP サーバー本体
 ```
 
-`shell-mcp-launch.py` は公式 MCP Python SDK の `FastMCP` で書かれた自前の
-サーバーです。コンテナ起動時に root で実行され、
+責務を 2 ファイルに分けています。Dockerfile の `ENTRYPOINT` が
+`["shell-mcp-entrypoint", "shell-mcp-launch", ...]` と 2 段になっており、
+Dockerfile を読むだけで「root で固める → 非 root で serve する」段取りが
+分かるようにしてあります。
 
-1. `BLOCKED_HOSTS` 環境変数を `127.0.0.1 <host>` として `/etc/hosts` に追記し、
-   `/etc/hosts` の所有権/パーミッションをロックダウン
-2. `os.setuid(1000)` (mcp ユーザー) に降格
-3. 許可ディレクトリ/許可シェルを CLI 引数 (`/workspace --shell bash /bin/bash`)
-   で受け取り、`execute_command` ツールを stdio で公開
-
-の順で動きます。`/etc/hosts` は `docker build` 中 read-only でバインド
-マウントされるためビルド時に直接書けず、この起動時ステップが必要です。
-エージェントが触る shell は常に非 root、タイムアウトは 30 秒固定です。
+- **`entrypoint.py`** — コンテナ起動時に root で実行される薄いラッパー。
+  `BLOCKED_HOSTS` を `127.0.0.1 <host>` として `/etc/hosts` に追記し、
+  `os.setuid(1000)` で mcp ユーザーに降格してから `os.execv` で次のコマンド
+  (= `shell-mcp-launch`) に制御を渡します。`/etc/hosts` は `docker build` 中
+  read-only でバインドマウントされるためビルド時に直接書けず、起動時に
+  root で行うしかない、というのがこの段が存在する理由です。降格しないと
+  エージェントが自分で `/etc/hosts` を書き換えてブロックを剥がせてしまい、
+  `BLOCKED_HOSTS` 機構が無意味になります。
+- **`shell-mcp-launch.py`** — 公式 MCP Python SDK の `FastMCP` で書かれた
+  自前のサーバー本体。許可ディレクトリ/許可シェルを CLI 引数で受け取り、
+  `execute_command` ツールを stdio で公開します。タイムアウトは 30 秒固定。
+  この時点ですでに非 root です。
 

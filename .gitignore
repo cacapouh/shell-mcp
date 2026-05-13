@@ -25,6 +25,7 @@ htmlcov/
 *.tar.gz
 .docker/
 .build/
+.work
 
 # Editor / OS
 .DS_Store
