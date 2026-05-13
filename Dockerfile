@@ -18,7 +18,7 @@ RUN apt-get update \
         util-linux \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir shell-mcp-server
+RUN pip install --no-cache-dir mcp
 
 # Bake the block list into the image. Docker bind-mounts /etc/hosts
 # read-only during build, so we can't write to it here — we stash the

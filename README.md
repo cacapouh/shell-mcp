@@ -1,7 +1,9 @@
 # shell-mcp
 
-[`shell-mcp-server`](https://pypi.org/project/shell-mcp-server/) を Docker
-コンテナ化し、指定したホストへの接続を拒否するイメージです。
+公式 MCP Python SDK (`mcp` パッケージ) の **FastMCP** で実装した最小構成の
+シェル実行 MCP サーバーを Docker コンテナ化し、指定したホストへの接続を
+拒否するイメージです。公開している MCP ツールは `execute_command(command,
+shell, cwd)` の 1 つだけです。
 
 ## カスタムビルド
 
@@ -69,20 +71,16 @@ docker build \
 ├── .gitignore
 └── docker/
     ├── entrypoint.sh           # /etc/hosts に拒否リストを適用し、uid=1000 に降格
-    └── shell-mcp-launch.py     # 上流 0.1.0 を asyncio.run() で起動するラッパー
+    └── shell-mcp-launch.py     # FastMCP による MCP サーバー本体 (~30 行)
 ```
-
-`docker/` 配下の 2 ファイルは、いずれも上流側の事情に対処するためのものです。
 
 - `/etc/hosts` は `docker build` 中は **read-only でバインドマウント** される
   ため、ビルド時に直接書けません。そこで一旦 `/etc/blocked_hosts.list` に
   焼き込み、起動時に `entrypoint.sh` が root で `/etc/hosts` へ追記して
   ロックダウンしたのち、`setpriv` で uid=1000 に降格してから MCP サーバーを
   `exec` します。エージェントが触る shell は常に非root です。
-- `shell-mcp-server==0.1.0` (執筆時点で PyPI 唯一のバージョン) は、
-  console-script が `sys.exit(main())` を呼び出すのに対して `main` が
-  `async` 関数なので、コルーチンが await されないままプロセスが終了して
-  しまいます。`shell-mcp-launch.py` はその `main` を `asyncio.run` で
-  起動するだけの 5 行のラッパーです。**上流パッケージ本体には手を入れて
-  いません。**
+- `shell-mcp-launch.py` は公式 MCP Python SDK の `FastMCP` で書かれた自前の
+  サーバーです。許可ディレクトリ・許可シェルを CLI 引数で受け取り
+  (`/workspace --shell bash /bin/bash` の形式)、`execute_command` ツールを
+  stdio で公開します。タイムアウトは 30 秒固定 (旧 `shell-mcp-server` と同じ)。
 
