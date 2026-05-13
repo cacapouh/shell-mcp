@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "shell": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "${workspaceFolder}:/workspace",
+        "ghcr.io/OWNER/REPO:latest"
+      ]
+    }
+  }
+}
