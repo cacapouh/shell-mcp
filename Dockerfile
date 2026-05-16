@@ -30,4 +30,4 @@ WORKDIR /workspace
 #      → setuid(1000) → argv[1:] を exec
 #   2. その先で shell-mcp-launch が非特権 mcp ユーザーとして MCP stdio を serve
 ENTRYPOINT ["/usr/local/bin/shell-mcp-entrypoint", \
-            "/usr/local/bin/shell-mcp-launch", "/workspace", "--shell", "bash", "/bin/bash"]
+            "/usr/local/bin/shell-mcp-launch", "--shell", "bash", "/bin/bash"]

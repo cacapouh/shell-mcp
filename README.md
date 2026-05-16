@@ -87,7 +87,7 @@ Dockerfile を読むだけで「root で固める → 非 root で serve する�
   エージェントが自分で `/etc/hosts` を書き換えてブロックを剥がせてしまい、
   `BLOCKED_HOSTS` 機構が無意味になります。
 - **`shell-mcp-launch.py`** — 公式 MCP Python SDK の `FastMCP` で書かれた
-  自前のサーバー本体。許可ディレクトリ/許可シェルを CLI 引数で受け取り、
-  `execute_command` ツールを stdio で公開します。タイムアウトは 30 秒固定。
-  この時点ですでに非 root です。
+  自前のサーバー本体。許可シェルを CLI 引数で受け取り、`execute_command`
+  ツールを stdio で公開します。タイムアウトは 30 秒固定。この時点ですでに
+  非 root です。
 
